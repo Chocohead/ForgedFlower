@@ -12,6 +12,8 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.jetbrains.java.decompiler.struct.attr.StructGeneralAttribute.*;
+
 public class StructMember {
 
   protected int accessFlags;
@@ -66,6 +68,8 @@ public class StructMember {
       }
     }
 
+    if (attributes.containsKey(ATTRIBUTE_LOCAL_VARIABLE_TABLE.getName()) && attributes.containsKey(ATTRIBUTE_LOCAL_VARIABLE_TYPE_TABLE.getName()))
+      ((StructLocalVariableTableAttribute)attributes.get(ATTRIBUTE_LOCAL_VARIABLE_TABLE.getName())).mergeSignatures((StructLocalVariableTypeTableAttribute)attributes.get(ATTRIBUTE_LOCAL_VARIABLE_TYPE_TABLE.getName()));
     return attributes;
   }
 
