@@ -229,6 +229,7 @@ public class ClassesProcessor implements CodeConstants {
                 stack.add(nestedClass);
               }
             }
+            Collections.sort(superNode.nested);
           }
         }
       }
@@ -424,7 +425,7 @@ public class ClassesProcessor implements CodeConstants {
   }
 
 
-  public static class ClassNode {
+  public static class ClassNode implements Comparable<ClassNode> {
     public static final int CLASS_ROOT = 0;
     public static final int CLASS_MEMBER = 1;
     public static final int CLASS_ANONYMOUS = 2;
@@ -504,6 +505,12 @@ public class ClassesProcessor implements CodeConstants {
         node = node.parent;
       }
       return node.wrapper;
+    }
+
+    @Override
+    public int compareTo(ClassNode o) {
+      //TODO: Take line numbers into account?
+      return this.classStruct.qualifiedName.compareTo(o.classStruct.qualifiedName);
     }
 
     public static class LambdaInformation {
