@@ -2,14 +2,28 @@
 package org.jetbrains.java.decompiler.struct;
 
 import org.jetbrains.java.decompiler.code.CodeConstants;
+import org.jetbrains.java.decompiler.main.DecompilerContext;
+import org.jetbrains.java.decompiler.main.extern.IFernflowerPreferences;
+import org.jetbrains.java.decompiler.struct.attr.StructGeneralAttribute;
+import org.jetbrains.java.decompiler.struct.attr.StructGenericSignatureAttribute;
 import org.jetbrains.java.decompiler.struct.consts.ConstantPool;
 import org.jetbrains.java.decompiler.struct.consts.PrimitiveConstant;
+import org.jetbrains.java.decompiler.struct.gen.VarType;
+import org.jetbrains.java.decompiler.struct.gen.generics.GenericClassDescriptor;
+import org.jetbrains.java.decompiler.struct.gen.generics.GenericMain;
+import org.jetbrains.java.decompiler.struct.gen.generics.GenericType;
 import org.jetbrains.java.decompiler.struct.lazy.LazyLoader;
 import org.jetbrains.java.decompiler.util.DataInputFullStream;
 import org.jetbrains.java.decompiler.util.InterpreterUtil;
 import org.jetbrains.java.decompiler.util.VBStyleCollection;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 
 /*
   class_file {
@@ -44,6 +58,7 @@ public class StructClass extends StructMember {
   private final String[] interfaceNames;
   private final VBStyleCollection<StructField, String> fields;
   private final VBStyleCollection<StructMethod, String> methods;
+  private GenericClassDescriptor signature = null;
 
   private ConstantPool pool;
 
@@ -172,5 +187,117 @@ public class StructClass extends StructMember {
   @Override
   public String toString() {
     return qualifiedName;
+  }
+
+  public GenericClassDescriptor getSignature() {
+    return signature;
+  }
+
+  @Override
+  protected StructGeneralAttribute readAttribute(DataInputFullStream in, ConstantPool pool, String name) throws IOException {
+    StructGeneralAttribute attribute = super.readAttribute(in, pool, name);
+    if ("Signature".equals(name) && DecompilerContext.getOption(IFernflowerPreferences.DECOMPILE_GENERIC_SIGNATURES)) {
+      StructGenericSignatureAttribute signature = (StructGenericSignatureAttribute)attribute;
+      this.signature = GenericMain.parseClassSignature(qualifiedName, signature.getSignature());
+    }
+    return attribute;
+  }
+
+  private Map<VarType, VarType> getGenericMap(VarType type) {
+    if (this.signature == null || type == null || !type.isGeneric()) {
+      return Collections.emptyMap();
+    }
+    GenericType gtype = (GenericType)type;
+    if (gtype.getArguments().size() != this.signature.fparameters.size()) { //Invalid instance type?
+      return Collections.emptyMap();
+    }
+
+    Map<VarType, VarType> ret = new HashMap<>();
+    for (int x = 0; x < this.signature.fparameters.size(); x++) {
+      VarType var = gtype.getArguments().get(x);
+      if (var != null) {
+        ret.put(GenericType.parse("T" + this.signature.fparameters.get(x) + ";"), var);
+      }
+    }
+    return ret;
+  }
+
+  private Map<String, Map<VarType, VarType>> genericHiarachy;
+  public Map<String, Map<VarType, VarType>> getAllGenerics() {
+    if (genericHiarachy != null) {
+      return genericHiarachy;
+    }
+
+    Map<String, Map<VarType, VarType>> ret = new HashMap<>();
+    if (this.signature != null && !this.signature.fparameters.isEmpty()) {
+      Map<VarType, VarType> mine = new HashMap<>();
+      for (String par : this.signature.fparameters) {
+        VarType type = GenericType.parse("T" + par + ";");
+        mine.put(type, type);
+      }
+      ret.put(this.qualifiedName, mine);
+    }
+
+    Set<String> visited = new HashSet<>(); //Is there a better way? Is the signature forced to contain all interfaces?
+    if (this.signature != null) {
+      for (VarType intf : this.signature.superinterfaces) {
+        visited.add((String)intf.value);
+
+        StructClass cls = DecompilerContext.getStructContext().getClass((String)intf.value);
+        if (cls != null) {
+          Map<VarType, VarType> sig = cls.getGenericMap(intf);
+
+          for (Entry<String, Map<VarType, VarType>> e : cls.getAllGenerics().entrySet()) {
+            if (e.getValue().isEmpty()) {
+              ret.put(e.getKey(), e.getValue());
+            }
+            else {
+              Map<VarType, VarType> sub = new HashMap<>();
+              for (Entry<VarType, VarType> e2 : e.getValue().entrySet()) {
+                sub.put(e2.getKey(), sig.getOrDefault(e2.getValue(), e2.getValue()));
+              }
+              ret.put(e.getKey(), sub);
+            }
+          }
+        }
+      }
+    }
+
+    for (String intf : this.interfaceNames) {
+      if (visited.contains(intf)) {
+        continue;
+      }
+      StructClass cls = DecompilerContext.getStructContext().getClass(intf);
+      if (cls != null) {
+        ret.putAll(cls.getAllGenerics());
+      }
+    }
+
+    if (this.superClass != null) {
+      StructClass cls = DecompilerContext.getStructContext().getClass((String)this.superClass.value);
+      if (cls != null) {
+        Map<VarType, VarType> sig = this.signature == null ? Collections.emptyMap() : cls.getGenericMap(this.signature.superclass);
+        if (sig.isEmpty()) {
+          ret.putAll(cls.getAllGenerics());
+        }
+        else {
+          for (Entry<String, Map<VarType, VarType>> e : cls.getAllGenerics().entrySet()) {
+            if (e.getValue().isEmpty()) {
+              ret.put(e.getKey(), e.getValue());
+            }
+            else {
+              Map<VarType, VarType> sub = new HashMap<>();
+              for (Entry<VarType, VarType> e2 : e.getValue().entrySet()) {
+                sub.put(e2.getKey(), sig.getOrDefault(e2.getValue(), e2.getValue()));
+              }
+              ret.put(e.getKey(), sub);
+            }
+          }
+        }
+      }
+    }
+
+    this.genericHiarachy = ret.isEmpty() ? Collections.emptyMap() : ret;
+    return this.genericHiarachy;
   }
 }
