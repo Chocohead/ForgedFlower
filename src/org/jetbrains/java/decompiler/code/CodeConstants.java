@@ -75,6 +75,7 @@ public interface CodeConstants {
   int ACC_ANNOTATION = 0x2000;
   int ACC_ENUM = 0x4000;
   int ACC_MANDATED = 0x8000;
+  int ACC_MODULE = 0x8000; // class v53/J9
 
   // ----------------------------------------------------------------------
   // CLASS FLAGS
@@ -112,6 +113,8 @@ public interface CodeConstants {
   int CONSTANT_MethodHandle = 15;
   int CONSTANT_MethodType = 16;
   int CONSTANT_InvokeDynamic = 18;
+  int CONSTANT_Module = 19; // class v53/J9 - Only valid if access_flags has ACC_MODULE
+  int CONSTANT_Package = 20; // class v53/J9 - Only valid if access_flags has ACC_MODULE
 
   // ----------------------------------------------------------------------
   // MethodHandle reference_kind values
