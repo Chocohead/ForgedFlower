@@ -53,6 +53,8 @@ public interface IFernflowerPreferences {
 
   String USE_JAD_VARNAMING = "jvn";
 
+  String SKIP_EXTRA_FILES = "sef";
+
   Map<String, Object> DEFAULTS = getDefaults();
 
   static Map<String, Object> getDefaults() {
@@ -96,6 +98,7 @@ public interface IFernflowerPreferences {
     defaults.put(UNIT_TEST_MODE, "0");
     defaults.put(DUMP_ORIGINAL_LINES, "0");
     defaults.put(USE_JAD_VARNAMING, "0");
+    defaults.put(SKIP_EXTRA_FILES, "0");
 
     return Collections.unmodifiableMap(defaults);
   }
