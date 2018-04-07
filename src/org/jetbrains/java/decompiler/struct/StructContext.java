@@ -94,6 +94,7 @@ public class StructContext {
       catch (IOException ex) {
         String message = "Corrupted archive file: " + file;
         DecompilerContext.getLogger().writeMessage(message, ex);
+        throw new RuntimeException(ex);
       }
       if (isArchive) {
         return;
@@ -115,6 +116,7 @@ public class StructContext {
         catch (IOException ex) {
           String message = "Corrupted class file: " + file;
           DecompilerContext.getLogger().writeMessage(message, ex);
+          throw new RuntimeException(ex);
         }
       }
       else {
