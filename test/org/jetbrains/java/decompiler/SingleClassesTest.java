@@ -114,4 +114,5 @@ public class SingleClassesTest extends SingleClassesTestBase {
   @Test public void testSuspendLambda() { doTest("pkg/TestSuspendLambdaKt"); }
   @Test public void testNamedSuspendFun2Kt() { doTest("pkg/TestNamedSuspendFun2Kt"); }
   @Test public void testGenericArgs() { doTest("pkg/TestGenericArgs"); }
+  @Test public void testTryWithResources() { doTest("pkg/TestTryWithResources"); }
 }
