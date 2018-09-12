@@ -28,6 +28,7 @@ import org.jetbrains.java.decompiler.util.InterpreterUtil;
 import org.jetbrains.java.decompiler.util.TextBuffer;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class ClassWriter {
   private final PoolInterceptor interceptor;
@@ -998,6 +999,10 @@ public class ClassWriter {
         buffer.append(MODIFIERS.get(modifier)).append(' ');
       }
     }
+  }
+
+  public static String getModifiers(int flags) {
+    return MODIFIERS.entrySet().stream().filter(e -> (e.getKey() & flags) != 0).map(Map.Entry::getValue).collect(Collectors.joining(" "));
   }
 
   public static void appendTypeParameters(TextBuffer buffer, List<String> parameters, List<List<VarType>> bounds) {
