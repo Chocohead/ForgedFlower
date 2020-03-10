@@ -194,7 +194,7 @@ public class InitializerProcessor {
                         whitelist.add(keyField);
                         itr.remove();
                       } else {
-                        DecompilerContext.getLogger().writeMessage("Don't know how to handle non independent "+assignExpr.getRight().getClass().getName(), IFernflowerLogger.Severity.ERROR);
+                        DecompilerContext.getLogger().writeMessage("Don't know how to handle non independent NewExprent constructor "+instance.getClass().getName(), IFernflowerLogger.Severity.ERROR);
                       }
                     } else {
                       DecompilerContext.getLogger().writeMessage("Don't know how to handle non independent "+assignExpr.getRight().getClass().getName(), IFernflowerLogger.Severity.ERROR);
