@@ -333,7 +333,7 @@ public class InitializerProcessor {
           break;
         case Exprent.EXPRENT_FIELD:
           FieldExprent fexpr = (FieldExprent)expr;
-          if (cl.hasField(fexpr.getName(), fexpr.getDescriptor().descriptorString)) {
+          if (cl.qualifiedName.equals(fexpr.getClassname()) && cl.hasField(fexpr.getName(), fexpr.getDescriptor().descriptorString)) {
             String key = InterpreterUtil.makeUniqueKey(fexpr.getName(), fexpr.getDescriptor().descriptorString);
             if (isStatic) {
               // There is a very stupid section of the JLS
