@@ -98,12 +98,12 @@ public class SwitchHelper {
             (index instanceof InvocationExprent && ((InvocationExprent) index).getName().equals("ordinal"));
         }
         
-        StructField stField = classNode.getWrapper().getClassStruct().getField(field.getName(), field.getDescriptor().descriptorString);
+        StructField stField = classNode.getClassStruct().getField(field.getName(), field.getDescriptor().descriptorString);
         if ((stField.getAccessFlags() & STATIC_FINAL_SYNTHETIC) != STATIC_FINAL_SYNTHETIC) {
           return false;
         }
         
-        if ((classNode.getWrapper().getClassStruct().getAccessFlags() & CodeConstants.ACC_SYNTHETIC) == CodeConstants.ACC_SYNTHETIC) {
+        if ((classNode.getClassStruct().getAccessFlags() & CodeConstants.ACC_SYNTHETIC) == CodeConstants.ACC_SYNTHETIC) {
           return true; //TODO: Find a way to check the structure of the initalizer?
           //Exprent init = classNode.getWrapper().getStaticFieldInitializers().getWithKey(InterpreterUtil.makeUniqueKey(field.getName(), field.getDescriptor().descriptorString));
           //Above is null because we haven't preocess the class yet?

@@ -549,6 +549,14 @@ public class ClassesProcessor implements CodeConstants {
       return null;
     }
 
+    public StructClass getClassStruct() {
+    	ClassNode node = this;
+        while (node.type == CLASS_LAMBDA) {
+          node = node.parent;
+        }
+        return node.classStruct;
+    }
+
     public ClassWrapper getWrapper() {
       ClassNode node = this;
       while (node.type == CLASS_LAMBDA) {
