@@ -26,6 +26,10 @@ public class Fernflower implements IDecompiledData {
   private final IdentifierConverter converter;
 
   public Fernflower(IBytecodeProvider provider, IResultSaver saver, Map<String, Object> customProperties, IFernflowerLogger logger) {
+    this(provider, saver, customProperties, logger, 0);
+  }
+
+  public Fernflower(IBytecodeProvider provider, IResultSaver saver, Map<String, Object> customProperties, IFernflowerLogger logger, int threads) {
     Map<String, Object> properties = new HashMap<>(IFernflowerPreferences.DEFAULTS);
     if (customProperties != null) {
       properties.putAll(customProperties);
@@ -70,7 +74,7 @@ public class Fernflower implements IDecompiledData {
       }
     }
 
-    DecompilerContext context = new DecompilerContext(properties, logger, structContext, classProcessor, interceptor, renamerFactory);
+    DecompilerContext context = new DecompilerContext(properties, threads, logger, structContext, classProcessor, interceptor, renamerFactory);
     DecompilerContext.setCurrentContext(context);
 
     String vendor = System.getProperty("java.vendor", "missing vendor");
@@ -135,6 +139,17 @@ public class Fernflower implements IDecompiledData {
     }
     else {
       return entryName.substring(0, entryName.lastIndexOf(".class")) + ".java";
+    }
+  }
+
+  @Override
+  public boolean processClass(StructClass cl) {
+    try {
+      classProcessor.processClass(cl);
+      return true;
+    } catch (Throwable t) {
+      DecompilerContext.getLogger().writeMessage("Class " + cl.qualifiedName + " couldn't be processed.", t);
+      return false;
     }
   }
 

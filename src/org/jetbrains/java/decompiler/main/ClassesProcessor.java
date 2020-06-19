@@ -35,7 +35,8 @@ public class ClassesProcessor implements CodeConstants {
   public static final int AVERAGE_CLASS_SIZE = 16 * 1024;
 
   private final StructContext context;
-  private final Map<String, ClassNode> mapRootClasses = new HashMap<>();
+  //TODO, This is synchronized because LambdaProcessor adds classes to this. Figure out a way to not sync this map.
+  private final Map<String, ClassNode> mapRootClasses = Collections.synchronizedMap(new HashMap<>());
   private final Set<String> whitelist = new HashSet<>();
 
   private static class Inner {
@@ -360,14 +361,13 @@ public class ClassesProcessor implements CodeConstants {
     return true;
   }
 
-  public void writeClass(StructClass cl, TextBuffer buffer) throws IOException {
+  public void processClass(StructClass cl) throws IOException {
     ClassNode root = mapRootClasses.get(cl.qualifiedName);
     if (root.type != ClassNode.CLASS_ROOT) {
       return;
     }
-
-    DecompilerContext.getLogger().startReadingClass(cl.qualifiedName);
-    try {
+    DecompilerContext.getLogger().startProcessingClass(cl.qualifiedName);
+    {
       ImportCollector importCollector = new ImportCollector(root);
       DecompilerContext.startClass(importCollector);
 
@@ -382,7 +382,18 @@ public class ClassesProcessor implements CodeConstants {
       new NestedClassProcessor().processClass(root, root);
 
       new NestedMemberAccess().propagateMemberAccess(root);
+    }
+    DecompilerContext.getLogger().endProcessingClass();
+  }
 
+  public void writeClass(StructClass cl, TextBuffer buffer) throws IOException {
+    ClassNode root = mapRootClasses.get(cl.qualifiedName);
+    if (root.type != ClassNode.CLASS_ROOT) {
+      return;
+    }
+
+    DecompilerContext.getLogger().startReadingClass(cl.qualifiedName);
+    try {
       TextBuffer classBuffer = new TextBuffer(AVERAGE_CLASS_SIZE);
       new ClassWriter().classToJava(root, classBuffer, 0, null);
 
@@ -397,7 +408,7 @@ public class ClassesProcessor implements CodeConstants {
         buffer.appendLineSeparator();
       }
 
-      int import_lines_written = importCollector.writeImports(buffer);
+      int import_lines_written = DecompilerContext.getImportCollector().writeImports(buffer);
       if (import_lines_written > 0) {
         buffer.appendLineSeparator();
       }

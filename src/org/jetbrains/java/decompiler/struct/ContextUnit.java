@@ -14,8 +14,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.zip.ZipFile;
 
 public class ContextUnit {
@@ -118,7 +124,10 @@ public class ContextUnit {
           StructClass cl = classes.get(i);
           String entryName = decompiledData.getClassEntryName(cl, classEntries.get(i));
           if (entryName != null) {
-            String content = decompiledData.getClassContent(cl);
+            String content = null;
+            if (decompiledData.processClass(cl)) {
+              content = decompiledData.getClassContent(cl);
+            }
             if (content != null) {
               int[] mapping = null;
               if (DecompilerContext.getOption(IFernflowerPreferences.BYTECODE_SOURCE_MAPPING)) {
@@ -149,17 +158,78 @@ public class ContextUnit {
           }
         }
 
-        // classes
-        for (int i = 0; i < classes.size(); i++) {
-          StructClass cl = classes.get(i);
-          String entryName = decompiledData.getClassEntryName(cl, classEntries.get(i));
-          if (entryName != null) {
-            String content = decompiledData.getClassContent(cl);
-            resultSaver.saveClassEntry(archivePath, filename, cl.qualifiedName, entryName, content);
+        //Whooo threads!
+        int threads = DecompilerContext.getThreads();
+        if (threads > 1) {
+
+          DecompilerContext rootContext = DecompilerContext.getCurrentContext();
+          ExecutorService executor = Executors.newFixedThreadPool(threads);
+
+          //Compute the classes we need to decomp.
+          List<ClassContext> toProcess = IntStream.range(0, classes.size()).parallel()
+            .mapToObj(i -> {
+              StructClass cl = classes.get(i);
+              return new ClassContext(cl, decompiledData.getClassEntryName(cl, classEntries.get(i)));
+            })
+            .filter(e -> e.entryName != null)
+            .collect(Collectors.toList());
+          List<Future<?>> futures = new ArrayList<>(toProcess.size());
+
+          //Submit preprocessor jobs.
+          for (ClassContext clCtx : toProcess) {
+            futures.add(executor.submit(() -> {
+              DecompilerContext.cloneContext(rootContext);
+              clCtx.ctx = DecompilerContext.getCurrentContext();
+              clCtx.shouldContinue = decompiledData.processClass(clCtx.cl);
+              DecompilerContext.setCurrentContext(null);
+            }));
+          }
+
+          //Ask the executor to shutdown
+          executor.shutdown();
+          waitForAll(futures);
+          futures.clear();
+
+          executor = Executors.newFixedThreadPool(threads);
+
+          // classes
+          for (ClassContext clCtx : toProcess) {
+            if (clCtx.shouldContinue) {
+              futures.add(executor.submit(() -> {
+                DecompilerContext.setCurrentContext(clCtx.ctx);
+                String content = decompiledData.getClassContent(clCtx.cl);
+                resultSaver.saveClassEntry(archivePath, filename, clCtx.cl.qualifiedName, clCtx.entryName, content);
+                DecompilerContext.setCurrentContext(null);
+              }));
+            }
+          }
+          executor.shutdown();
+          waitForAll(futures);
+        } else {
+          // classes
+          for (int i = 0; i < classes.size(); i++) {
+            StructClass cl = classes.get(i);
+            String entryName = decompiledData.getClassEntryName(cl, classEntries.get(i));
+            if (entryName != null) {
+              if (decompiledData.processClass(cl)) {
+                String content = decompiledData.getClassContent(cl);
+                resultSaver.saveClassEntry(archivePath, filename, cl.qualifiedName, entryName, content);
+              }
+            }
           }
         }
 
         resultSaver.closeArchive(archivePath, filename);
+    }
+  }
+
+  private static void waitForAll(List<Future<?>> futures) {
+    for (Future<?> future : futures) {
+      try {
+        future.get();
+      } catch (InterruptedException | ExecutionException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
@@ -174,4 +244,17 @@ public class ContextUnit {
   public List<StructClass> getClasses() {
     return classes;
   }
+
+  private static class ClassContext {
+    public final StructClass cl;
+    public final String entryName;
+    public boolean shouldContinue;
+    public DecompilerContext ctx;
+
+    private ClassContext(StructClass cl, String entryName) {
+      this.cl = cl;
+      this.entryName = entryName;
+    }
+  }
+
 }
